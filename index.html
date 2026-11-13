@@ -259,7 +259,7 @@
 </head>
 <body>
 
-  <!-- Globalny panel sterowania na górzie -->
+  <!-- Globalny panel sterowania na górze -->
   <div class="no-print">
     <h3 style="margin-top:0; color:#002060;">Generator Listów Przewozowych Palet</h3>
     <div class="control-row">
@@ -279,9 +279,13 @@ Kod pocztowy, Miasto, Kraj</textarea>
     </div>
     
     <div class="control-row">
-      <div class="control-group" style="flex: 1;">
+      <div class="control-group" style="flex: 2;">
         <label for="globalOrder">Order (numer zamówienia dla wszystkich stron):</label>
         <input type="text" id="globalOrder" value="Order: PO-DE7382">
+      </div>
+      <div class="control-group" style="flex: 1;">
+        <label for="globalDate">Date (Data dokumentu):</label>
+        <input type="date" id="globalDate">
       </div>
     </div>
 
@@ -339,7 +343,7 @@ Kod pocztowy, Miasto, Kraj</textarea>
   <div id="labelsContainer">
     <div class="a4-page">
       <div class="header-title">Packing list - PALLET no. 1/1</div>
-      <div class="date-row">November 12, 2026</div>
+      <div class="date-row preview-date">November 13, 2026</div>
 
       <div class="top-section">
         <div class="info-block">
@@ -378,19 +382,41 @@ Kod pocztowy, Miasto, Kraj</textarea>
   </div>
 
   <script>
+    // Inicjalizacja domyślnej daty na dzisiejszą w formacie YYYY-MM-DD dla pola HTML
+    const dateInput = document.getElementById('globalDate');
+    const today = new Date();
+    dateInput.value = today.toISOString().split('T')[0];
+
+    function getFormattedDateString() {
+      const val = dateInput.value;
+      if (!val) return '';
+      const dateObj = new Date(val + 'T00:00:00');
+      return dateObj.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+
     function updateGlobalFields() {
       const shippedText = document.getElementById('globalShippedBy').value.replace(/\n/g, '<br>');
       const deliveryText = document.getElementById('globalDelivery').value.replace(/\n/g, '<br>');
       const orderText = document.getElementById('globalOrder').value;
+      const dateText = getFormattedDateString();
 
       document.querySelectorAll('.preview-shipped').forEach(el => el.innerHTML = shippedText);
       document.querySelectorAll('.preview-delivery').forEach(el => el.innerHTML = deliveryText);
       document.querySelectorAll('.preview-order').forEach(el => el.innerText = orderText);
+      document.querySelectorAll('.preview-date').forEach(el => el.innerText = dateText);
     }
 
     document.getElementById('globalShippedBy').addEventListener('input', updateGlobalFields);
     document.getElementById('globalDelivery').addEventListener('input', updateGlobalFields);
     document.getElementById('globalOrder').addEventListener('input', updateGlobalFields);
+    document.getElementById('globalDate').addEventListener('change', updateGlobalFields);
+
+    // Ustawienie początkowego stanu daty przy załadowaniu strony
+    updateGlobalFields();
 
     function toggleTemplateInfo() {
       const box = document.getElementById('templateInfoBox');
@@ -420,7 +446,6 @@ Kod pocztowy, Miasto, Kraj</textarea>
       XLSX.writeFile(workbook, "wzor_do_importu_palet.xlsx");
     }
 
-    // Pomocnicza funkcja do bezpiecznej konwersji tekstowych/liczbowych wartości (radzi sobie z przecinkami i spacjami)
     function parseNumber(value) {
       if (value === undefined || value === null) return 0;
       if (typeof value === 'number') return value;
@@ -429,7 +454,6 @@ Kod pocztowy, Miasto, Kraj</textarea>
       return isNaN(num) ? 0 : num;
     }
 
-    // Pomocnicza funkcja do elastycznego wyszukiwania klucza w wierszu (odporność na wielkość liter i spacje)
     function getKeyValue(row, possibleNames) {
       const keys = Object.keys(row);
       for (const name of possibleNames) {
@@ -504,7 +528,6 @@ Kod pocztowy, Miasto, Kraj</textarea>
             items: {}
           };
         } else {
-          // Jeśli wiersze tej samej palety mają wagę, bierzemy większą lub sumujemy (tutaj aktualizujemy, jeśli dotychczasowa była 0)
           if (palletsMap[palletNo].grossWeight === 0 && grossWeight > 0) {
             palletsMap[palletNo].grossWeight = grossWeight;
           }
@@ -523,7 +546,7 @@ Kod pocztowy, Miasto, Kraj</textarea>
       const shippedHTML = document.getElementById('globalShippedBy').value.replace(/\n/g, '<br>');
       const deliveryHTML = document.getElementById('globalDelivery').value.replace(/\n/g, '<br>');
       const orderValue = document.getElementById('globalOrder').value;
-      const currentDate = "November 12, 2026";
+      const currentDate = getFormattedDateString();
 
       let palletIndex = 1;
 
@@ -549,7 +572,7 @@ Kod pocztowy, Miasto, Kraj</textarea>
         pageDiv.className = 'a4-page';
         pageDiv.innerHTML = `
           <div class="header-title">Packing list - PALLET no. ${palletIndex}/${totalPalletsCount}</div>
-          <div class="date-row">${currentDate}</div>
+          <div class="date-row preview-date">${currentDate}</div>
 
           <div class="top-section">
             <div class="info-block">
@@ -591,5 +614,3 @@ Kod pocztowy, Miasto, Kraj</textarea>
   </script>
 </body>
 </html>
-
-    
