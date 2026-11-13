@@ -398,7 +398,6 @@ Kod pocztowy, Miasto, Kraj</textarea>
     }
 
     function downloadTemplateExcel() {
-      // Tworzymy plik gdzie kolumna A (Unnamed: 0) jest pusta/undefined, tak jak w oryginale
       const templateData = [
         {
           "Unnamed: 0": undefined,
@@ -419,6 +418,33 @@ Kod pocztowy, Miasto, Kraj</textarea>
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Wzór importu");
       XLSX.writeFile(workbook, "wzor_do_importu_palet.xlsx");
+    }
+
+    // Pomocnicza funkcja do bezpiecznej konwersji tekstowych/liczbowych wartości (radzi sobie z przecinkami i spacjami)
+    function parseNumber(value) {
+      if (value === undefined || value === null) return 0;
+      if (typeof value === 'number') return value;
+      let str = String(value).trim().replace(/\s+/g, '').replace(',', '.');
+      let num = parseFloat(str);
+      return isNaN(num) ? 0 : num;
+    }
+
+    // Pomocnicza funkcja do elastycznego wyszukiwania klucza w wierszu (odporność na wielkość liter i spacje)
+    function getKeyValue(row, possibleNames) {
+      const keys = Object.keys(row);
+      for (const name of possibleNames) {
+        const foundKey = keys.find(k => k.trim().toLowerCase() === name.toLowerCase());
+        if (foundKey !== undefined && row[foundKey] !== undefined) {
+          return row[foundKey];
+        }
+      }
+      for (const name of possibleNames) {
+        const foundKey = keys.find(k => k.trim().toLowerCase().includes(name.toLowerCase()));
+        if (foundKey !== undefined && row[foundKey] !== undefined) {
+          return row[foundKey];
+        }
+      }
+      return null;
     }
 
     document.getElementById('excelFile').addEventListener('change', function(e) {
@@ -444,7 +470,7 @@ Kod pocztowy, Miasto, Kraj</textarea>
     function generatePalletPages(rows) {
       if (rows.length > 0) {
         const firstRowKeys = Object.keys(rows[0]);
-        const orderKey = firstRowKeys.find(k => k.toLowerCase().includes('zamówinie') || k.toLowerCase().includes('zamowinie') || k.toLowerCase().includes('order'));
+        const orderKey = firstRowKeys.find(k => k.toLowerCase().includes('zamówinie') || k.toLowerCase().includes('zamowinie') || k.toLowerCase().includes('order') || k.toLowerCase().includes('zamówienie'));
         
         if (orderKey) {
           let orderVal = rows[0][orderKey];
@@ -460,16 +486,28 @@ Kod pocztowy, Miasto, Kraj</textarea>
 
       const palletsMap = {};
       rows.forEach(r => {
-        const palletNo = r['Jednostka logistyczna'] || r['Jednostka Logistyczna'] || 'UNKNOWN_PALLET';
-        const sku = r['Towar'] || '-';
-        const qty = parseFloat(r['Suma']) || 0;
-        const grossWeight = parseFloat(r['Waga Całkowita'] || r['Waga całkowita']) || 0;
+        const palletVal = getKeyValue(r, ['Jednostka logistyczna', 'Jednostka Logistyczna']);
+        const palletNo = palletVal !== null ? String(palletVal).trim() : 'UNKNOWN_PALLET';
+
+        const skuVal = getKeyValue(r, ['Towar', 'SKU']);
+        const sku = skuVal !== null ? String(skuVal).trim() : '-';
+
+        const qtyVal = getKeyValue(r, ['Suma', 'Quantity', 'Ilość', 'Ilosc']);
+        const qty = parseNumber(qtyVal);
+
+        const grossVal = getKeyValue(r, ['Waga Całkowita', 'Waga całkowita', 'Waga', 'Weight']);
+        const grossWeight = parseNumber(grossVal);
 
         if (!palletsMap[palletNo]) {
           palletsMap[palletNo] = {
             grossWeight: grossWeight,
             items: {}
           };
+        } else {
+          // Jeśli wiersze tej samej palety mają wagę, bierzemy większą lub sumujemy (tutaj aktualizujemy, jeśli dotychczasowa była 0)
+          if (palletsMap[palletNo].grossWeight === 0 && grossWeight > 0) {
+            palletsMap[palletNo].grossWeight = grossWeight;
+          }
         }
 
         if (!palletsMap[palletNo].items[sku]) {
@@ -553,3 +591,5 @@ Kod pocztowy, Miasto, Kraj</textarea>
   </script>
 </body>
 </html>
+
+    
